@@ -104,3 +104,49 @@ fn aggregate_non_positive_interval_fails_cleanly() {
         .assert()
         .failure();
 }
+
+#[test]
+fn resample_merges_candles_into_larger_interval() {
+    let file = csv_fixture(
+        "timestamp,open,high,low,close,volume\n\
+         0,100,105,98,102,10\n\
+         60,102,108,101,107,20\n\
+         120,107,107,90,95,15\n",
+    );
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("resample")
+        .arg(file.path())
+        .arg("--interval")
+        .arg("300")
+        .assert()
+        .success()
+        .stdout("timestamp,open,high,low,close,volume\n0,100,108,90,95,45\n");
+}
+
+#[test]
+fn resample_reads_from_stdin() {
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("resample")
+        .arg("-")
+        .arg("--interval")
+        .arg("300")
+        .write_stdin("timestamp,open,high,low,close,volume\n0,100,105,98,102,10\n")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("0,100,105,98,102,10"));
+}
+
+#[test]
+fn resample_non_positive_interval_fails_cleanly() {
+    let file = csv_fixture("timestamp,open,high,low,close,volume\n0,100,105,98,102,10\n");
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("resample")
+        .arg(file.path())
+        .arg("--interval")
+        .arg("0")
+        .assert()
+        .failure();
+}
