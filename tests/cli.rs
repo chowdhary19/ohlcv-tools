@@ -40,6 +40,18 @@ fn vwap_computes_correct_value() {
 }
 
 #[test]
+fn vwap_reads_from_stdin() {
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("vwap")
+        .arg("-")
+        .write_stdin("price,volume\n10,1\n20,3\n")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("17.5"));
+}
+
+#[test]
 fn vwap_missing_file_fails_cleanly() {
     Command::cargo_bin("ohlcv-tools")
         .unwrap()
