@@ -2,6 +2,7 @@ mod candles;
 mod format;
 mod input;
 mod moving_average;
+mod returns;
 mod vwap;
 
 use clap::{Parser, Subcommand};
@@ -46,6 +47,14 @@ enum Command {
         /// Smoothing period.
         #[arg(long, default_value_t = 14)]
         period: usize,
+        /// Decimal places to round the output to.
+        #[arg(long, default_value_t = 6)]
+        precision: u32,
+    },
+    /// Simple percentage returns between consecutive prices.
+    Returns {
+        /// Path to a CSV file with a `price` column, or `-` for stdin.
+        file: PathBuf,
         /// Decimal places to round the output to.
         #[arg(long, default_value_t = 6)]
         precision: u32,
@@ -101,6 +110,26 @@ fn main() -> ExitCode {
             period,
             precision,
         }) => print_price_series(&file, period, precision, moving_average::ema),
+        Some(Command::Returns { file, precision }) => match moving_average::load_prices(&file) {
+            Ok(prices) => {
+                let series = returns::simple_returns(&prices);
+                if series.is_empty() {
+                    eprintln!(
+                        "ohlcv-tools: need at least 2 prices in {} to compute returns",
+                        file.display()
+                    );
+                    return ExitCode::FAILURE;
+                }
+                for value in series {
+                    println!("{}", format::round_to(value, precision));
+                }
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("ohlcv-tools: failed to read {}: {e}", file.display());
+                ExitCode::FAILURE
+            }
+        },
         Some(Command::Aggregate {
             file,
             interval,
