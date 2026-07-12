@@ -68,6 +68,12 @@ All numeric output is rounded via `--precision` (default 6 decimal places).
 Every subcommand accepts `-` in place of a file path to read CSV from
 stdin, e.g. `cat trades.csv | ohlcv-tools vwap -`.
 
+Every computation subcommand rejects non-finite values (`NaN`, `inf`,
+`-inf`) in its numeric input columns with a clear error instead of
+silently propagating them into the result (e.g. a single `NaN` price
+would otherwise make `vwap`/`sma`/`drawdown` return `NaN` with no
+indication anything went wrong).
+
 ## JSON output
 
 Every computation subcommand accepts `--format json` for scripting instead
