@@ -7,6 +7,7 @@ mod moving_average;
 mod resample;
 mod returns;
 mod stats;
+mod validate;
 mod vwap;
 
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
@@ -168,19 +169,29 @@ fn main() -> ExitCode {
             precision,
             format,
         }) => match vwap::load_trades(&file) {
-            Ok(trades) => match vwap::vwap(&trades) {
-                Some(value) => {
-                    print_named_value("vwap", format::round_to(value, precision), format);
-                    ExitCode::SUCCESS
+            Ok(trades) => {
+                let prices: Vec<f64> = trades.iter().map(|t| t.price).collect();
+                let volumes: Vec<f64> = trades.iter().map(|t| t.volume).collect();
+                if let Err(e) = validate::check_finite(&prices, "price")
+                    .and_then(|_| validate::check_finite(&volumes, "volume"))
+                {
+                    eprintln!("ohlcv-tools: {e}");
+                    return ExitCode::FAILURE;
                 }
-                None => {
-                    eprintln!(
-                        "ohlcv-tools: no trades or zero total volume in {}",
-                        file.display()
-                    );
-                    ExitCode::FAILURE
+                match vwap::vwap(&trades) {
+                    Some(value) => {
+                        print_named_value("vwap", format::round_to(value, precision), format);
+                        ExitCode::SUCCESS
+                    }
+                    None => {
+                        eprintln!(
+                            "ohlcv-tools: no trades or zero total volume in {}",
+                            file.display()
+                        );
+                        ExitCode::FAILURE
+                    }
                 }
-            },
+            }
             Err(e) => {
                 eprintln!("ohlcv-tools: failed to read {}: {e}", file.display());
                 ExitCode::FAILURE
