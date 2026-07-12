@@ -41,7 +41,9 @@ pub fn aggregate(ticks: &[Tick], interval_secs: i64) -> Vec<Candle> {
         let bucket = tick.timestamp.div_euclid(interval_secs) * interval_secs;
 
         if current_bucket == Some(bucket) {
-            let candle = candles.last_mut().expect("current_bucket implies a candle exists");
+            let candle = candles
+                .last_mut()
+                .expect("current_bucket implies a candle exists");
             candle.high = candle.high.max(tick.price);
             candle.low = candle.low.min(tick.price);
             candle.close = tick.price;
@@ -67,7 +69,11 @@ mod tests {
     use super::*;
 
     fn tick(timestamp: i64, price: f64, volume: f64) -> Tick {
-        Tick { timestamp, price, volume }
+        Tick {
+            timestamp,
+            price,
+            volume,
+        }
     }
 
     #[test]
@@ -88,7 +94,14 @@ mod tests {
         let candles = aggregate(&ticks, 60);
         assert_eq!(
             candles,
-            vec![Candle { timestamp: 0, open: 100.0, high: 100.0, low: 100.0, close: 100.0, volume: 5.0 }]
+            vec![Candle {
+                timestamp: 0,
+                open: 100.0,
+                high: 100.0,
+                low: 100.0,
+                close: 100.0,
+                volume: 5.0
+            }]
         );
     }
 
@@ -112,7 +125,11 @@ mod tests {
 
     #[test]
     fn ticks_spanning_multiple_buckets_make_multiple_candles() {
-        let ticks = vec![tick(0, 100.0, 1.0), tick(65, 200.0, 1.0), tick(130, 300.0, 1.0)];
+        let ticks = vec![
+            tick(0, 100.0, 1.0),
+            tick(65, 200.0, 1.0),
+            tick(130, 300.0, 1.0),
+        ];
         let candles = aggregate(&ticks, 60);
         let timestamps: Vec<i64> = candles.iter().map(|c| c.timestamp).collect();
         assert_eq!(timestamps, vec![0, 60, 120]);
@@ -120,7 +137,11 @@ mod tests {
 
     #[test]
     fn unsorted_input_is_aggregated_correctly() {
-        let ticks = vec![tick(20, 90.0, 1.0), tick(0, 100.0, 1.0), tick(10, 110.0, 1.0)];
+        let ticks = vec![
+            tick(20, 90.0, 1.0),
+            tick(0, 100.0, 1.0),
+            tick(10, 110.0, 1.0),
+        ];
         let candles = aggregate(&ticks, 60);
         assert_eq!(candles.len(), 1);
         assert_eq!(candles[0].open, 100.0); // earliest timestamp, not input order

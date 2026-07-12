@@ -65,7 +65,10 @@ fn main() -> ExitCode {
                     ExitCode::SUCCESS
                 }
                 None => {
-                    eprintln!("ohlcv-tools: no trades or zero total volume in {}", file.display());
+                    eprintln!(
+                        "ohlcv-tools: no trades or zero total volume in {}",
+                        file.display()
+                    );
                     ExitCode::FAILURE
                 }
             },
