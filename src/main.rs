@@ -5,6 +5,7 @@ mod format;
 mod input;
 mod moving_average;
 mod returns;
+mod stats;
 mod vwap;
 
 use clap::{CommandFactory, Parser, Subcommand};
@@ -56,6 +57,14 @@ enum Command {
     },
     /// Simple percentage returns between consecutive prices.
     Returns {
+        /// Path to a CSV file with a `price` column, or `-` for stdin.
+        file: PathBuf,
+        /// Decimal places to round the output to.
+        #[arg(long, default_value_t = 6)]
+        precision: u32,
+    },
+    /// Min/max/mean/median summary of a price series.
+    Stats {
         /// Path to a CSV file with a `price` column, or `-` for stdin.
         file: PathBuf,
         /// Decimal places to round the output to.
@@ -137,6 +146,25 @@ fn main() -> ExitCode {
                         "ohlcv-tools: need at least 2 prices in {} to compute drawdown",
                         file.display()
                     );
+                    ExitCode::FAILURE
+                }
+            },
+            Err(e) => {
+                eprintln!("ohlcv-tools: failed to read {}: {e}", file.display());
+                ExitCode::FAILURE
+            }
+        },
+        Some(Command::Stats { file, precision }) => match moving_average::load_prices(&file) {
+            Ok(prices) => match stats::summarize(&prices) {
+                Some(s) => {
+                    println!("min: {}", format::round_to(s.min, precision));
+                    println!("max: {}", format::round_to(s.max, precision));
+                    println!("mean: {}", format::round_to(s.mean, precision));
+                    println!("median: {}", format::round_to(s.median, precision));
+                    ExitCode::SUCCESS
+                }
+                None => {
+                    eprintln!("ohlcv-tools: no prices in {}", file.display());
                     ExitCode::FAILURE
                 }
             },
