@@ -1,4 +1,5 @@
 mod candles;
+mod format;
 mod moving_average;
 mod vwap;
 
@@ -22,6 +23,9 @@ enum Command {
     Vwap {
         /// Path to a CSV file with `price` and `volume` columns.
         file: PathBuf,
+        /// Decimal places to round the output to.
+        #[arg(long, default_value_t = 6)]
+        precision: u32,
     },
     /// Simple moving average over a `price` CSV column.
     Sma {
@@ -30,6 +34,9 @@ enum Command {
         /// Window size.
         #[arg(long, default_value_t = 14)]
         window: usize,
+        /// Decimal places to round the output to.
+        #[arg(long, default_value_t = 6)]
+        precision: u32,
     },
     /// Exponential moving average over a `price` CSV column.
     Ema {
@@ -38,6 +45,9 @@ enum Command {
         /// Smoothing period.
         #[arg(long, default_value_t = 14)]
         period: usize,
+        /// Decimal places to round the output to.
+        #[arg(long, default_value_t = 6)]
+        precision: u32,
     },
     /// Aggregate tick data into OHLCV candles.
     Aggregate {
@@ -46,6 +56,9 @@ enum Command {
         /// Candle interval in seconds.
         #[arg(long)]
         interval: i64,
+        /// Decimal places to round OHLCV values to.
+        #[arg(long, default_value_t = 6)]
+        precision: u32,
     },
 }
 
@@ -58,10 +71,10 @@ fn main() -> ExitCode {
             println!("Run `ohlcv-tools --help` to see available subcommands as they're added.");
             ExitCode::SUCCESS
         }
-        Some(Command::Vwap { file }) => match vwap::load_trades(&file) {
+        Some(Command::Vwap { file, precision }) => match vwap::load_trades(&file) {
             Ok(trades) => match vwap::vwap(&trades) {
                 Some(value) => {
-                    println!("{value}");
+                    println!("{}", format::round_to(value, precision));
                     ExitCode::SUCCESS
                 }
                 None => {
@@ -77,13 +90,21 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Some(Command::Sma { file, window }) => {
-            print_price_series(&file, window, moving_average::sma)
-        }
-        Some(Command::Ema { file, period }) => {
-            print_price_series(&file, period, moving_average::ema)
-        }
-        Some(Command::Aggregate { file, interval }) => match candles::load_ticks(&file) {
+        Some(Command::Sma {
+            file,
+            window,
+            precision,
+        }) => print_price_series(&file, window, precision, moving_average::sma),
+        Some(Command::Ema {
+            file,
+            period,
+            precision,
+        }) => print_price_series(&file, period, precision, moving_average::ema),
+        Some(Command::Aggregate {
+            file,
+            interval,
+            precision,
+        }) => match candles::load_ticks(&file) {
             Ok(ticks) => {
                 let result = candles::aggregate(&ticks, interval);
                 if result.is_empty() {
@@ -97,7 +118,12 @@ fn main() -> ExitCode {
                 for c in result {
                     println!(
                         "{},{},{},{},{},{}",
-                        c.timestamp, c.open, c.high, c.low, c.close, c.volume
+                        c.timestamp,
+                        format::round_to(c.open, precision),
+                        format::round_to(c.high, precision),
+                        format::round_to(c.low, precision),
+                        format::round_to(c.close, precision),
+                        format::round_to(c.volume, precision),
                     );
                 }
                 ExitCode::SUCCESS
@@ -113,6 +139,7 @@ fn main() -> ExitCode {
 fn print_price_series(
     file: &std::path::Path,
     param: usize,
+    precision: u32,
     compute: fn(&[f64], usize) -> Vec<f64>,
 ) -> ExitCode {
     match moving_average::load_prices(file) {
@@ -126,7 +153,7 @@ fn print_price_series(
                 return ExitCode::FAILURE;
             }
             for value in series {
-                println!("{value}");
+                println!("{}", format::round_to(value, precision));
             }
             ExitCode::SUCCESS
         }
