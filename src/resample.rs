@@ -164,3 +164,41 @@ mod tests {
         assert_eq!(result.len(), 2);
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use crate::candles::{Tick, aggregate};
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Resampling real, internally-consistent candles (produced by
+        /// `aggregate` from random ticks, same as the aggregate OHLC
+        /// invariant proptest) into a larger interval must preserve
+        /// basic OHLC consistency: low is the minimum, high is the
+        /// maximum, and open/close both fall within [low, high].
+        /// Volume must stay non-negative.
+        #[test]
+        fn resample_preserves_ohlc_invariants(
+            ticks in proptest::collection::vec(
+                (0i64..100_000, 1.0f64..10_000.0, 0.0f64..1_000.0),
+                1..200,
+            ),
+            source_interval in 1i64..300,
+            resample_interval in 1i64..3600,
+        ) {
+            let ticks: Vec<Tick> = ticks
+                .into_iter()
+                .map(|(timestamp, price, volume)| Tick { timestamp, price, volume })
+                .collect();
+
+            let source_candles = aggregate(&ticks, source_interval);
+            for candle in resample(&source_candles, resample_interval) {
+                prop_assert!(candle.low <= candle.high);
+                prop_assert!(candle.open >= candle.low && candle.open <= candle.high);
+                prop_assert!(candle.close >= candle.low && candle.close <= candle.high);
+                prop_assert!(candle.volume >= 0.0);
+            }
+        }
+    }
+}
