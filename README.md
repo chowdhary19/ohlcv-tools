@@ -101,6 +101,13 @@ cargo build
 cargo test
 ```
 
-Tests include unit tests per module plus `tests/cli.rs`, which exercises
-the compiled binary end-to-end (argument parsing, exit codes, real
+Tests include unit tests per module, property-based tests (`proptest`)
+for numeric invariants, plus `tests/cli.rs`, which exercises the
+compiled binary end-to-end (argument parsing, exit codes, real
 stdout/stderr output).
+
+```
+cargo bench
+```
+
+Runs the `criterion` benchmark suite in `benches/`.
