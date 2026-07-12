@@ -1,4 +1,5 @@
 mod candles;
+mod drawdown;
 mod format;
 mod input;
 mod moving_average;
@@ -59,6 +60,14 @@ enum Command {
         #[arg(long, default_value_t = 6)]
         precision: u32,
     },
+    /// Maximum peak-to-trough drawdown over a price series.
+    Drawdown {
+        /// Path to a CSV file with a `price` column, or `-` for stdin.
+        file: PathBuf,
+        /// Decimal places to round the output to.
+        #[arg(long, default_value_t = 6)]
+        precision: u32,
+    },
     /// Aggregate tick data into OHLCV candles.
     Aggregate {
         /// Path to a CSV file with `timestamp`, `price`, and `volume` columns, or `-` for stdin.
@@ -90,6 +99,25 @@ fn main() -> ExitCode {
                 None => {
                     eprintln!(
                         "ohlcv-tools: no trades or zero total volume in {}",
+                        file.display()
+                    );
+                    ExitCode::FAILURE
+                }
+            },
+            Err(e) => {
+                eprintln!("ohlcv-tools: failed to read {}: {e}", file.display());
+                ExitCode::FAILURE
+            }
+        },
+        Some(Command::Drawdown { file, precision }) => match moving_average::load_prices(&file) {
+            Ok(prices) => match drawdown::max_drawdown(&prices) {
+                Some(value) => {
+                    println!("{}", format::round_to(value, precision));
+                    ExitCode::SUCCESS
+                }
+                None => {
+                    eprintln!(
+                        "ohlcv-tools: need at least 2 prices in {} to compute drawdown",
                         file.display()
                     );
                     ExitCode::FAILURE
