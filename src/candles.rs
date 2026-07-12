@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 #[derive(Debug, Deserialize, Clone, PartialEq)]
@@ -8,7 +8,7 @@ pub struct Tick {
     pub volume: f64,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct Candle {
     pub timestamp: i64,
     pub open: f64,

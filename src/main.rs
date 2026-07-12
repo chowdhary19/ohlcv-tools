@@ -39,6 +39,9 @@ enum Command {
         /// Decimal places to round the output to.
         #[arg(long, default_value_t = 6)]
         precision: u32,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
     },
     /// Simple moving average over a `price` CSV column.
     Sma {
@@ -50,6 +53,9 @@ enum Command {
         /// Decimal places to round the output to.
         #[arg(long, default_value_t = 6)]
         precision: u32,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
     },
     /// Exponential moving average over a `price` CSV column.
     Ema {
@@ -61,6 +67,9 @@ enum Command {
         /// Decimal places to round the output to.
         #[arg(long, default_value_t = 6)]
         precision: u32,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
     },
     /// Simple percentage returns between consecutive prices.
     Returns {
@@ -69,6 +78,9 @@ enum Command {
         /// Decimal places to round the output to.
         #[arg(long, default_value_t = 6)]
         precision: u32,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
     },
     /// Min/max/mean/median summary of a price series.
     Stats {
@@ -88,6 +100,9 @@ enum Command {
         /// Decimal places to round the output to.
         #[arg(long, default_value_t = 6)]
         precision: u32,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
     },
     /// Pearson correlation between two equal-length price series.
     Correlation {
@@ -98,6 +113,9 @@ enum Command {
         /// Decimal places to round the output to.
         #[arg(long, default_value_t = 6)]
         precision: u32,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
     },
     /// Generate a shell completion script.
     Completions {
@@ -114,6 +132,9 @@ enum Command {
         /// Decimal places to round OHLCV values to.
         #[arg(long, default_value_t = 6)]
         precision: u32,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
     },
     /// Re-bucket an already-aggregated OHLCV candle CSV into a larger interval.
     Resample {
@@ -127,6 +148,9 @@ enum Command {
         /// Decimal places to round OHLCV values to.
         #[arg(long, default_value_t = 6)]
         precision: u32,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
     },
 }
 
@@ -139,10 +163,14 @@ fn main() -> ExitCode {
             println!("Run `ohlcv-tools --help` to see available subcommands as they're added.");
             ExitCode::SUCCESS
         }
-        Some(Command::Vwap { file, precision }) => match vwap::load_trades(&file) {
+        Some(Command::Vwap {
+            file,
+            precision,
+            format,
+        }) => match vwap::load_trades(&file) {
             Ok(trades) => match vwap::vwap(&trades) {
                 Some(value) => {
-                    println!("{}", format::round_to(value, precision));
+                    print_named_value("vwap", format::round_to(value, precision), format);
                     ExitCode::SUCCESS
                 }
                 None => {
@@ -158,10 +186,14 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Some(Command::Drawdown { file, precision }) => match moving_average::load_prices(&file) {
+        Some(Command::Drawdown {
+            file,
+            precision,
+            format,
+        }) => match moving_average::load_prices(&file) {
             Ok(prices) => match drawdown::max_drawdown(&prices) {
                 Some(value) => {
-                    println!("{}", format::round_to(value, precision));
+                    print_named_value("max_drawdown", format::round_to(value, precision), format);
                     ExitCode::SUCCESS
                 }
                 None => {
@@ -217,13 +249,14 @@ fn main() -> ExitCode {
             file_a,
             file_b,
             precision,
+            format,
         }) => {
             let prices_a = moving_average::load_prices(&file_a);
             let prices_b = moving_average::load_prices(&file_b);
             match (prices_a, prices_b) {
                 (Ok(a), Ok(b)) => match correlation::pearson(&a, &b) {
                     Some(r) => {
-                        println!("{}", format::round_to(r, precision));
+                        print_named_value("correlation", format::round_to(r, precision), format);
                         ExitCode::SUCCESS
                     }
                     None => {
@@ -256,13 +289,19 @@ fn main() -> ExitCode {
             file,
             window,
             precision,
-        }) => print_price_series(&file, window, precision, moving_average::sma),
+            format,
+        }) => print_price_series(&file, window, precision, format, moving_average::sma),
         Some(Command::Ema {
             file,
             period,
             precision,
-        }) => print_price_series(&file, period, precision, moving_average::ema),
-        Some(Command::Returns { file, precision }) => match moving_average::load_prices(&file) {
+            format,
+        }) => print_price_series(&file, period, precision, format, moving_average::ema),
+        Some(Command::Returns {
+            file,
+            precision,
+            format,
+        }) => match moving_average::load_prices(&file) {
             Ok(prices) => {
                 let series = returns::simple_returns(&prices);
                 if series.is_empty() {
@@ -272,9 +311,11 @@ fn main() -> ExitCode {
                     );
                     return ExitCode::FAILURE;
                 }
-                for value in series {
-                    println!("{}", format::round_to(value, precision));
-                }
+                let rounded: Vec<f64> = series
+                    .iter()
+                    .map(|v| format::round_to(*v, precision))
+                    .collect();
+                print_series(&rounded, format);
                 ExitCode::SUCCESS
             }
             Err(e) => {
@@ -286,6 +327,7 @@ fn main() -> ExitCode {
             file,
             interval,
             precision,
+            format,
         }) => match candles::load_ticks(&file) {
             Ok(ticks) => {
                 let result = candles::aggregate(&ticks, interval);
@@ -296,7 +338,7 @@ fn main() -> ExitCode {
                     );
                     return ExitCode::FAILURE;
                 }
-                print_candles(&result, precision);
+                print_candles(&result, precision, format);
                 ExitCode::SUCCESS
             }
             Err(e) => {
@@ -308,6 +350,7 @@ fn main() -> ExitCode {
             file,
             interval,
             precision,
+            format,
         }) => match resample::load_candles(&file) {
             Ok(candles) => {
                 let result = resample::resample(&candles, interval);
@@ -318,7 +361,7 @@ fn main() -> ExitCode {
                     );
                     return ExitCode::FAILURE;
                 }
-                print_candles(&result, precision);
+                print_candles(&result, precision, format);
                 ExitCode::SUCCESS
             }
             Err(e) => {
@@ -329,18 +372,58 @@ fn main() -> ExitCode {
     }
 }
 
-fn print_candles(result: &[candles::Candle], precision: u32) {
-    println!("timestamp,open,high,low,close,volume");
-    for c in result {
-        println!(
-            "{},{},{},{},{},{}",
-            c.timestamp,
-            format::round_to(c.open, precision),
-            format::round_to(c.high, precision),
-            format::round_to(c.low, precision),
-            format::round_to(c.close, precision),
-            format::round_to(c.volume, precision),
-        );
+/// Print a single named numeric result as either `name: value` text or a
+/// `{"name": value}` JSON object.
+fn print_named_value(name: &str, value: f64, format: OutputFormat) {
+    match format {
+        OutputFormat::Text => println!("{value}"),
+        OutputFormat::Json => {
+            let obj = serde_json::json!({ name: value });
+            println!("{}", serde_json::to_string(&obj).unwrap());
+        }
+    }
+}
+
+/// Print a series of numeric values as either one-per-line text or a JSON array.
+fn print_series(values: &[f64], format: OutputFormat) {
+    match format {
+        OutputFormat::Text => {
+            for value in values {
+                println!("{value}");
+            }
+        }
+        OutputFormat::Json => {
+            println!("{}", serde_json::to_string(values).unwrap());
+        }
+    }
+}
+
+fn print_candles(result: &[candles::Candle], precision: u32, format: OutputFormat) {
+    let rounded: Vec<candles::Candle> = result
+        .iter()
+        .map(|c| candles::Candle {
+            timestamp: c.timestamp,
+            open: format::round_to(c.open, precision),
+            high: format::round_to(c.high, precision),
+            low: format::round_to(c.low, precision),
+            close: format::round_to(c.close, precision),
+            volume: format::round_to(c.volume, precision),
+        })
+        .collect();
+
+    match format {
+        OutputFormat::Text => {
+            println!("timestamp,open,high,low,close,volume");
+            for c in &rounded {
+                println!(
+                    "{},{},{},{},{},{}",
+                    c.timestamp, c.open, c.high, c.low, c.close, c.volume
+                );
+            }
+        }
+        OutputFormat::Json => {
+            println!("{}", serde_json::to_string(&rounded).unwrap());
+        }
     }
 }
 
@@ -348,6 +431,7 @@ fn print_price_series(
     file: &std::path::Path,
     param: usize,
     precision: u32,
+    format: OutputFormat,
     compute: fn(&[f64], usize) -> Vec<f64>,
 ) -> ExitCode {
     match moving_average::load_prices(file) {
@@ -360,9 +444,11 @@ fn print_price_series(
                 );
                 return ExitCode::FAILURE;
             }
-            for value in series {
-                println!("{}", format::round_to(value, precision));
-            }
+            let rounded: Vec<f64> = series
+                .iter()
+                .map(|v| format::round_to(*v, precision))
+                .collect();
+            print_series(&rounded, format);
             ExitCode::SUCCESS
         }
         Err(e) => {
