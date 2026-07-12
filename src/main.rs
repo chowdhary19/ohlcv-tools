@@ -1,3 +1,4 @@
+mod candles;
 mod moving_average;
 mod vwap;
 
@@ -38,6 +39,14 @@ enum Command {
         #[arg(long, default_value_t = 14)]
         period: usize,
     },
+    /// Aggregate tick data into OHLCV candles.
+    Aggregate {
+        /// Path to a CSV file with `timestamp`, `price`, and `volume` columns.
+        file: PathBuf,
+        /// Candle interval in seconds.
+        #[arg(long)]
+        interval: i64,
+    },
 }
 
 fn main() -> ExitCode {
@@ -71,6 +80,30 @@ fn main() -> ExitCode {
         Some(Command::Ema { file, period }) => {
             print_price_series(&file, period, moving_average::ema)
         }
+        Some(Command::Aggregate { file, interval }) => match candles::load_ticks(&file) {
+            Ok(ticks) => {
+                let result = candles::aggregate(&ticks, interval);
+                if result.is_empty() {
+                    eprintln!(
+                        "ohlcv-tools: no candles produced from {} (empty input or non-positive interval)",
+                        file.display()
+                    );
+                    return ExitCode::FAILURE;
+                }
+                println!("timestamp,open,high,low,close,volume");
+                for c in result {
+                    println!(
+                        "{},{},{},{},{},{}",
+                        c.timestamp, c.open, c.high, c.low, c.close, c.volume
+                    );
+                }
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("ohlcv-tools: failed to read {}: {e}", file.display());
+                ExitCode::FAILURE
+            }
+        },
     }
 }
 
