@@ -40,6 +40,8 @@ price
 and `volume` columns. Ticks don't need to be pre-sorted; output is one
 candle per line: `timestamp,open,high,low,close,volume`.
 
+All numeric output is rounded via `--precision` (default 6 decimal places).
+
 ## Development
 
 ```
