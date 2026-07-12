@@ -46,3 +46,7 @@ candle per line: `timestamp,open,high,low,close,volume`.
 cargo build
 cargo test
 ```
+
+Tests include unit tests per module plus `tests/cli.rs`, which exercises
+the compiled binary end-to-end (argument parsing, exit codes, real
+stdout/stderr output).
