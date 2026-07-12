@@ -148,3 +148,36 @@ mod tests {
         assert_eq!(candles[0].close, 90.0); // latest timestamp, not input order
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Every candle must satisfy basic OHLC consistency: low is the
+        /// minimum, high is the maximum, and open/close both fall
+        /// within [low, high]. Volume must be non-negative given
+        /// non-negative input volumes.
+        #[test]
+        fn candles_satisfy_ohlc_invariants(
+            ticks in proptest::collection::vec(
+                (0i64..100_000, 1.0f64..10_000.0, 0.0f64..1_000.0),
+                1..200,
+            ),
+            interval in 1i64..3600,
+        ) {
+            let ticks: Vec<Tick> = ticks
+                .into_iter()
+                .map(|(timestamp, price, volume)| Tick { timestamp, price, volume })
+                .collect();
+
+            for candle in aggregate(&ticks, interval) {
+                prop_assert!(candle.low <= candle.high);
+                prop_assert!(candle.open >= candle.low && candle.open <= candle.high);
+                prop_assert!(candle.close >= candle.low && candle.close <= candle.high);
+                prop_assert!(candle.volume >= 0.0);
+            }
+        }
+    }
+}
