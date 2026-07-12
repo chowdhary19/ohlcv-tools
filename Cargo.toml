@@ -22,3 +22,15 @@ criterion = "0.5"
 [[bench]]
 name = "aggregate_bench"
 harness = false
+
+[[bench]]
+name = "vwap_bench"
+harness = false
+
+[[bench]]
+name = "sma_bench"
+harness = false
+
+[[bench]]
+name = "resample_bench"
+harness = false
