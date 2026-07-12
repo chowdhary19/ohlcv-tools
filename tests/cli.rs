@@ -240,3 +240,109 @@ fn returns_format_json_prints_array() {
         .success()
         .stdout("[0.1,-0.1]\n");
 }
+
+#[test]
+fn drawdown_rejects_nan_price() {
+    let file = csv_fixture("price\n100\nnan\n120\n");
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("drawdown")
+        .arg(file.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("non-finite value"));
+}
+
+#[test]
+fn sma_rejects_infinite_price() {
+    let file = csv_fixture("price\n1\ninf\n3\n4\n");
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("sma")
+        .arg(file.path())
+        .arg("--window")
+        .arg("2")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("non-finite value"));
+}
+
+#[test]
+fn ema_rejects_nan_price() {
+    let file = csv_fixture("price\n1\n2\nnan\n4\n");
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("ema")
+        .arg(file.path())
+        .arg("--period")
+        .arg("2")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("non-finite value"));
+}
+
+#[test]
+fn returns_rejects_nan_price() {
+    let file = csv_fixture("price\n100\nnan\n110\n");
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("returns")
+        .arg(file.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("non-finite value"));
+}
+
+#[test]
+fn stats_rejects_nan_price() {
+    let file = csv_fixture("price\n100\nnan\n");
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("stats")
+        .arg(file.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("non-finite value"));
+}
+
+#[test]
+fn correlation_rejects_nan_price() {
+    let file_a = csv_fixture("price\n1\n2\n3\n");
+    let file_b = csv_fixture("price\n1\nnan\n3\n");
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("correlation")
+        .arg(file_a.path())
+        .arg(file_b.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("non-finite value"));
+}
+
+#[test]
+fn aggregate_rejects_nan_volume() {
+    let file = csv_fixture("timestamp,price,volume\n0,100,1\n30,101,nan\n");
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("aggregate")
+        .arg(file.path())
+        .arg("--interval")
+        .arg("60")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("non-finite value"));
+}
+
+#[test]
+fn resample_rejects_nan_high() {
+    let file = csv_fixture("timestamp,open,high,low,close,volume\n0,100,nan,98,102,10\n");
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("resample")
+        .arg(file.path())
+        .arg("--interval")
+        .arg("300")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("non-finite value"));
+}

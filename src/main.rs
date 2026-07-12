@@ -202,19 +202,29 @@ fn main() -> ExitCode {
             precision,
             format,
         }) => match moving_average::load_prices(&file) {
-            Ok(prices) => match drawdown::max_drawdown(&prices) {
-                Some(value) => {
-                    print_named_value("max_drawdown", format::round_to(value, precision), format);
-                    ExitCode::SUCCESS
+            Ok(prices) => {
+                if let Err(e) = validate::check_finite(&prices, "price") {
+                    eprintln!("ohlcv-tools: {e}");
+                    return ExitCode::FAILURE;
                 }
-                None => {
-                    eprintln!(
-                        "ohlcv-tools: need at least 2 prices in {} to compute drawdown",
-                        file.display()
-                    );
-                    ExitCode::FAILURE
+                match drawdown::max_drawdown(&prices) {
+                    Some(value) => {
+                        print_named_value(
+                            "max_drawdown",
+                            format::round_to(value, precision),
+                            format,
+                        );
+                        ExitCode::SUCCESS
+                    }
+                    None => {
+                        eprintln!(
+                            "ohlcv-tools: need at least 2 prices in {} to compute drawdown",
+                            file.display()
+                        );
+                        ExitCode::FAILURE
+                    }
                 }
-            },
+            }
             Err(e) => {
                 eprintln!("ohlcv-tools: failed to read {}: {e}", file.display());
                 ExitCode::FAILURE
@@ -225,32 +235,38 @@ fn main() -> ExitCode {
             precision,
             format,
         }) => match moving_average::load_prices(&file) {
-            Ok(prices) => match stats::summarize(&prices) {
-                Some(s) => {
-                    let rounded = stats::Stats {
-                        min: format::round_to(s.min, precision),
-                        max: format::round_to(s.max, precision),
-                        mean: format::round_to(s.mean, precision),
-                        median: format::round_to(s.median, precision),
-                    };
-                    match format {
-                        OutputFormat::Text => {
-                            println!("min: {}", rounded.min);
-                            println!("max: {}", rounded.max);
-                            println!("mean: {}", rounded.mean);
-                            println!("median: {}", rounded.median);
+            Ok(prices) => {
+                if let Err(e) = validate::check_finite(&prices, "price") {
+                    eprintln!("ohlcv-tools: {e}");
+                    return ExitCode::FAILURE;
+                }
+                match stats::summarize(&prices) {
+                    Some(s) => {
+                        let rounded = stats::Stats {
+                            min: format::round_to(s.min, precision),
+                            max: format::round_to(s.max, precision),
+                            mean: format::round_to(s.mean, precision),
+                            median: format::round_to(s.median, precision),
+                        };
+                        match format {
+                            OutputFormat::Text => {
+                                println!("min: {}", rounded.min);
+                                println!("max: {}", rounded.max);
+                                println!("mean: {}", rounded.mean);
+                                println!("median: {}", rounded.median);
+                            }
+                            OutputFormat::Json => {
+                                println!("{}", serde_json::to_string(&rounded).unwrap());
+                            }
                         }
-                        OutputFormat::Json => {
-                            println!("{}", serde_json::to_string(&rounded).unwrap());
-                        }
+                        ExitCode::SUCCESS
                     }
-                    ExitCode::SUCCESS
+                    None => {
+                        eprintln!("ohlcv-tools: no prices in {}", file.display());
+                        ExitCode::FAILURE
+                    }
                 }
-                None => {
-                    eprintln!("ohlcv-tools: no prices in {}", file.display());
-                    ExitCode::FAILURE
-                }
-            },
+            }
             Err(e) => {
                 eprintln!("ohlcv-tools: failed to read {}: {e}", file.display());
                 ExitCode::FAILURE
@@ -265,18 +281,30 @@ fn main() -> ExitCode {
             let prices_a = moving_average::load_prices(&file_a);
             let prices_b = moving_average::load_prices(&file_b);
             match (prices_a, prices_b) {
-                (Ok(a), Ok(b)) => match correlation::pearson(&a, &b) {
-                    Some(r) => {
-                        print_named_value("correlation", format::round_to(r, precision), format);
-                        ExitCode::SUCCESS
+                (Ok(a), Ok(b)) => {
+                    if let Err(e) = validate::check_finite(&a, "price")
+                        .and_then(|_| validate::check_finite(&b, "price"))
+                    {
+                        eprintln!("ohlcv-tools: {e}");
+                        return ExitCode::FAILURE;
                     }
-                    None => {
-                        eprintln!(
-                            "ohlcv-tools: correlation undefined (mismatched lengths, <2 points, or zero variance)"
-                        );
-                        ExitCode::FAILURE
+                    match correlation::pearson(&a, &b) {
+                        Some(r) => {
+                            print_named_value(
+                                "correlation",
+                                format::round_to(r, precision),
+                                format,
+                            );
+                            ExitCode::SUCCESS
+                        }
+                        None => {
+                            eprintln!(
+                                "ohlcv-tools: correlation undefined (mismatched lengths, <2 points, or zero variance)"
+                            );
+                            ExitCode::FAILURE
+                        }
                     }
-                },
+                }
                 (Err(e), _) => {
                     eprintln!("ohlcv-tools: failed to read {}: {e}", file_a.display());
                     ExitCode::FAILURE
@@ -314,6 +342,10 @@ fn main() -> ExitCode {
             format,
         }) => match moving_average::load_prices(&file) {
             Ok(prices) => {
+                if let Err(e) = validate::check_finite(&prices, "price") {
+                    eprintln!("ohlcv-tools: {e}");
+                    return ExitCode::FAILURE;
+                }
                 let series = returns::simple_returns(&prices);
                 if series.is_empty() {
                     eprintln!(
@@ -341,6 +373,14 @@ fn main() -> ExitCode {
             format,
         }) => match candles::load_ticks(&file) {
             Ok(ticks) => {
+                let prices: Vec<f64> = ticks.iter().map(|t| t.price).collect();
+                let volumes: Vec<f64> = ticks.iter().map(|t| t.volume).collect();
+                if let Err(e) = validate::check_finite(&prices, "price")
+                    .and_then(|_| validate::check_finite(&volumes, "volume"))
+                {
+                    eprintln!("ohlcv-tools: {e}");
+                    return ExitCode::FAILURE;
+                }
                 let result = candles::aggregate(&ticks, interval);
                 if result.is_empty() {
                     eprintln!(
@@ -364,6 +404,20 @@ fn main() -> ExitCode {
             format,
         }) => match resample::load_candles(&file) {
             Ok(candles) => {
+                let opens: Vec<f64> = candles.iter().map(|c| c.open).collect();
+                let highs: Vec<f64> = candles.iter().map(|c| c.high).collect();
+                let lows: Vec<f64> = candles.iter().map(|c| c.low).collect();
+                let closes: Vec<f64> = candles.iter().map(|c| c.close).collect();
+                let volumes: Vec<f64> = candles.iter().map(|c| c.volume).collect();
+                if let Err(e) = validate::check_finite(&opens, "open")
+                    .and_then(|_| validate::check_finite(&highs, "high"))
+                    .and_then(|_| validate::check_finite(&lows, "low"))
+                    .and_then(|_| validate::check_finite(&closes, "close"))
+                    .and_then(|_| validate::check_finite(&volumes, "volume"))
+                {
+                    eprintln!("ohlcv-tools: {e}");
+                    return ExitCode::FAILURE;
+                }
                 let result = resample::resample(&candles, interval);
                 if result.is_empty() {
                     eprintln!(
@@ -447,6 +501,10 @@ fn print_price_series(
 ) -> ExitCode {
     match moving_average::load_prices(file) {
         Ok(prices) => {
+            if let Err(e) = validate::check_finite(&prices, "price") {
+                eprintln!("ohlcv-tools: {e}");
+                return ExitCode::FAILURE;
+            }
             let series = compute(&prices, param);
             if series.is_empty() {
                 eprintln!(
