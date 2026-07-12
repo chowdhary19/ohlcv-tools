@@ -1,4 +1,5 @@
 mod candles;
+mod correlation;
 mod drawdown;
 mod format;
 mod input;
@@ -69,6 +70,16 @@ enum Command {
         #[arg(long, default_value_t = 6)]
         precision: u32,
     },
+    /// Pearson correlation between two equal-length price series.
+    Correlation {
+        /// Path to the first CSV file with a `price` column, or `-` for stdin.
+        file_a: PathBuf,
+        /// Path to the second CSV file with a `price` column.
+        file_b: PathBuf,
+        /// Decimal places to round the output to.
+        #[arg(long, default_value_t = 6)]
+        precision: u32,
+    },
     /// Generate a shell completion script.
     Completions {
         /// Shell to generate completions for.
@@ -134,6 +145,36 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Some(Command::Correlation {
+            file_a,
+            file_b,
+            precision,
+        }) => {
+            let prices_a = moving_average::load_prices(&file_a);
+            let prices_b = moving_average::load_prices(&file_b);
+            match (prices_a, prices_b) {
+                (Ok(a), Ok(b)) => match correlation::pearson(&a, &b) {
+                    Some(r) => {
+                        println!("{}", format::round_to(r, precision));
+                        ExitCode::SUCCESS
+                    }
+                    None => {
+                        eprintln!(
+                            "ohlcv-tools: correlation undefined (mismatched lengths, <2 points, or zero variance)"
+                        );
+                        ExitCode::FAILURE
+                    }
+                },
+                (Err(e), _) => {
+                    eprintln!("ohlcv-tools: failed to read {}: {e}", file_a.display());
+                    ExitCode::FAILURE
+                }
+                (_, Err(e)) => {
+                    eprintln!("ohlcv-tools: failed to read {}: {e}", file_b.display());
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Some(Command::Completions { shell }) => {
             generate(
                 shell,
