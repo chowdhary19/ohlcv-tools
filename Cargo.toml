@@ -1,0 +1,9 @@
+[package]
+name = "ohlcv-tools"
+version = "0.1.0"
+edition = "2024"
+description = "Small CLI toolkit for OHLCV/tick market data: VWAP, moving averages, candle aggregation."
+license = "MIT"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
