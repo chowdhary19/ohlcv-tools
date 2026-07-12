@@ -4,6 +4,7 @@ mod drawdown;
 mod format;
 mod input;
 mod moving_average;
+mod resample;
 mod returns;
 mod stats;
 mod vwap;
@@ -108,6 +109,19 @@ enum Command {
         /// Path to a CSV file with `timestamp`, `price`, and `volume` columns, or `-` for stdin.
         file: PathBuf,
         /// Candle interval in seconds.
+        #[arg(long)]
+        interval: i64,
+        /// Decimal places to round OHLCV values to.
+        #[arg(long, default_value_t = 6)]
+        precision: u32,
+    },
+    /// Re-bucket an already-aggregated OHLCV candle CSV into a larger interval.
+    Resample {
+        /// Path to a CSV file with `timestamp,open,high,low,close,volume`
+        /// columns (e.g. `aggregate` output), or `-` for stdin.
+        file: PathBuf,
+        /// New candle interval in seconds. Must be larger than the input
+        /// candles' spacing to actually merge candles together.
         #[arg(long)]
         interval: i64,
         /// Decimal places to round OHLCV values to.
@@ -282,18 +296,7 @@ fn main() -> ExitCode {
                     );
                     return ExitCode::FAILURE;
                 }
-                println!("timestamp,open,high,low,close,volume");
-                for c in result {
-                    println!(
-                        "{},{},{},{},{},{}",
-                        c.timestamp,
-                        format::round_to(c.open, precision),
-                        format::round_to(c.high, precision),
-                        format::round_to(c.low, precision),
-                        format::round_to(c.close, precision),
-                        format::round_to(c.volume, precision),
-                    );
-                }
+                print_candles(&result, precision);
                 ExitCode::SUCCESS
             }
             Err(e) => {
@@ -301,6 +304,43 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Some(Command::Resample {
+            file,
+            interval,
+            precision,
+        }) => match resample::load_candles(&file) {
+            Ok(candles) => {
+                let result = resample::resample(&candles, interval);
+                if result.is_empty() {
+                    eprintln!(
+                        "ohlcv-tools: no candles produced from {} (empty input or non-positive interval)",
+                        file.display()
+                    );
+                    return ExitCode::FAILURE;
+                }
+                print_candles(&result, precision);
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("ohlcv-tools: failed to read {}: {e}", file.display());
+                ExitCode::FAILURE
+            }
+        },
+    }
+}
+
+fn print_candles(result: &[candles::Candle], precision: u32) {
+    println!("timestamp,open,high,low,close,volume");
+    for c in result {
+        println!(
+            "{},{},{},{},{},{}",
+            c.timestamp,
+            format::round_to(c.open, precision),
+            format::round_to(c.high, precision),
+            format::round_to(c.low, precision),
+            format::round_to(c.close, precision),
+            format::round_to(c.volume, precision),
+        );
     }
 }
 

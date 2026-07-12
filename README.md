@@ -11,6 +11,7 @@ Small CLI toolkit for working with OHLCV/tick market data.
 - `stats` — min/max/mean/median for a price series (`--format json` supported)
 - `correlation` — Pearson correlation between two equal-length price series
 - `aggregate` — turn tick/trade data into OHLCV candles at a given interval
+- `resample` — re-bucket already-aggregated OHLCV candles into a larger interval
 - `completions` — generate a shell completion script
 
 ## Usage
@@ -25,6 +26,7 @@ cargo run -- drawdown prices.csv
 cargo run -- stats prices.csv --format json
 cargo run -- correlation a.csv b.csv
 cargo run -- aggregate ticks.csv --interval 60
+cargo run -- resample candles.csv --interval 300
 cargo run -- completions bash > ohlcv-tools.bash
 ```
 
@@ -49,6 +51,14 @@ price
 `ticks.csv` (for `aggregate`) must have `timestamp` (unix seconds), `price`,
 and `volume` columns. Ticks don't need to be pre-sorted; output is one
 candle per line: `timestamp,open,high,low,close,volume`.
+
+`candles.csv` (for `resample`) must have `timestamp,open,high,low,close,volume`
+columns — the same shape `aggregate` produces. Candles don't need to be
+pre-sorted. Within each new, larger bucket: `open` comes from the
+earliest-timestamped candle, `close` from the latest, `high`/`low` are the
+extremes across all candles in the bucket, and `volume` is summed. This lets
+you build higher-timeframe candles (e.g. 1m to 1h) without re-reading the
+original ticks.
 
 All numeric output is rounded via `--precision` (default 6 decimal places).
 
