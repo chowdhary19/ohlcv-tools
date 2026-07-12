@@ -8,10 +8,16 @@ mod returns;
 mod stats;
 mod vwap;
 
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{Shell, generate};
 use std::path::PathBuf;
 use std::process::ExitCode;
+
+#[derive(Clone, Copy, ValueEnum)]
+enum OutputFormat {
+    Text,
+    Json,
+}
 
 /// Small CLI toolkit for OHLCV/tick market data.
 #[derive(Parser)]
@@ -70,6 +76,9 @@ enum Command {
         /// Decimal places to round the output to.
         #[arg(long, default_value_t = 6)]
         precision: u32,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
     },
     /// Maximum peak-to-trough drawdown over a price series.
     Drawdown {
@@ -154,13 +163,30 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Some(Command::Stats { file, precision }) => match moving_average::load_prices(&file) {
+        Some(Command::Stats {
+            file,
+            precision,
+            format,
+        }) => match moving_average::load_prices(&file) {
             Ok(prices) => match stats::summarize(&prices) {
                 Some(s) => {
-                    println!("min: {}", format::round_to(s.min, precision));
-                    println!("max: {}", format::round_to(s.max, precision));
-                    println!("mean: {}", format::round_to(s.mean, precision));
-                    println!("median: {}", format::round_to(s.median, precision));
+                    let rounded = stats::Stats {
+                        min: format::round_to(s.min, precision),
+                        max: format::round_to(s.max, precision),
+                        mean: format::round_to(s.mean, precision),
+                        median: format::round_to(s.median, precision),
+                    };
+                    match format {
+                        OutputFormat::Text => {
+                            println!("min: {}", rounded.min);
+                            println!("max: {}", rounded.max);
+                            println!("mean: {}", rounded.mean);
+                            println!("median: {}", rounded.median);
+                        }
+                        OutputFormat::Json => {
+                            println!("{}", serde_json::to_string(&rounded).unwrap());
+                        }
+                    }
                     ExitCode::SUCCESS
                 }
                 None => {
