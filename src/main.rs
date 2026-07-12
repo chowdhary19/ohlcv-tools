@@ -6,7 +6,8 @@ mod moving_average;
 mod returns;
 mod vwap;
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::{Shell, generate};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -68,6 +69,11 @@ enum Command {
         #[arg(long, default_value_t = 6)]
         precision: u32,
     },
+    /// Generate a shell completion script.
+    Completions {
+        /// Shell to generate completions for.
+        shell: Shell,
+    },
     /// Aggregate tick data into OHLCV candles.
     Aggregate {
         /// Path to a CSV file with `timestamp`, `price`, and `volume` columns, or `-` for stdin.
@@ -128,6 +134,15 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Some(Command::Completions { shell }) => {
+            generate(
+                shell,
+                &mut Cli::command(),
+                "ohlcv-tools",
+                &mut std::io::stdout(),
+            );
+            ExitCode::SUCCESS
+        }
         Some(Command::Sma {
             file,
             window,
@@ -225,7 +240,6 @@ fn print_price_series(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clap::CommandFactory;
 
     #[test]
     fn cli_definition_is_valid() {
