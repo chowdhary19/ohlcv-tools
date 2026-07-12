@@ -1,5 +1,6 @@
 mod candles;
 mod format;
+mod input;
 mod moving_average;
 mod vwap;
 
@@ -21,7 +22,7 @@ enum Command {
     Info,
     /// Compute volume-weighted average price from a `price,volume` CSV.
     Vwap {
-        /// Path to a CSV file with `price` and `volume` columns.
+        /// Path to a CSV file with `price` and `volume` columns, or `-` for stdin.
         file: PathBuf,
         /// Decimal places to round the output to.
         #[arg(long, default_value_t = 6)]
@@ -29,7 +30,7 @@ enum Command {
     },
     /// Simple moving average over a `price` CSV column.
     Sma {
-        /// Path to a CSV file with a `price` column.
+        /// Path to a CSV file with a `price` column, or `-` for stdin.
         file: PathBuf,
         /// Window size.
         #[arg(long, default_value_t = 14)]
@@ -40,7 +41,7 @@ enum Command {
     },
     /// Exponential moving average over a `price` CSV column.
     Ema {
-        /// Path to a CSV file with a `price` column.
+        /// Path to a CSV file with a `price` column, or `-` for stdin.
         file: PathBuf,
         /// Smoothing period.
         #[arg(long, default_value_t = 14)]
@@ -51,7 +52,7 @@ enum Command {
     },
     /// Aggregate tick data into OHLCV candles.
     Aggregate {
-        /// Path to a CSV file with `timestamp`, `price`, and `volume` columns.
+        /// Path to a CSV file with `timestamp`, `price`, and `volume` columns, or `-` for stdin.
         file: PathBuf,
         /// Candle interval in seconds.
         #[arg(long)]

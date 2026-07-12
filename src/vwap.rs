@@ -8,7 +8,7 @@ pub struct Trade {
 }
 
 pub fn load_trades(path: &Path) -> Result<Vec<Trade>, csv::Error> {
-    let mut reader = csv::Reader::from_path(path)?;
+    let mut reader = crate::input::reader_for(path)?;
     reader.deserialize().collect()
 }
 

@@ -7,7 +7,7 @@ struct PriceRow {
 }
 
 pub fn load_prices(path: &Path) -> Result<Vec<f64>, csv::Error> {
-    let mut reader = csv::Reader::from_path(path)?;
+    let mut reader = crate::input::reader_for(path)?;
     reader
         .deserialize()
         .map(|row: Result<PriceRow, csv::Error>| row.map(|r| r.price))

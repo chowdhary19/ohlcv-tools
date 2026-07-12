@@ -42,6 +42,9 @@ candle per line: `timestamp,open,high,low,close,volume`.
 
 All numeric output is rounded via `--precision` (default 6 decimal places).
 
+Every subcommand accepts `-` in place of a file path to read CSV from
+stdin, e.g. `cat trades.csv | ohlcv-tools vwap -`.
+
 ## Development
 
 ```

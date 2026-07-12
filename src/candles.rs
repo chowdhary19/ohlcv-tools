@@ -19,7 +19,7 @@ pub struct Candle {
 }
 
 pub fn load_ticks(path: &Path) -> Result<Vec<Tick>, csv::Error> {
-    let mut reader = csv::Reader::from_path(path)?;
+    let mut reader = crate::input::reader_for(path)?;
     reader.deserialize().collect()
 }
 
