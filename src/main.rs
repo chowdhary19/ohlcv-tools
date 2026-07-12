@@ -1,14 +1,7 @@
-mod candles;
-mod correlation;
-mod drawdown;
-mod format;
-mod input;
-mod moving_average;
-mod resample;
-mod returns;
-mod stats;
-mod validate;
-mod vwap;
+use ohlcv_tools::{
+    candles, correlation, drawdown, format, moving_average, resample, returns, stats, validate,
+    vwap,
+};
 
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{Shell, generate};
