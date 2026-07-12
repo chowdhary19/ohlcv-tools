@@ -8,11 +8,14 @@ Small CLI toolkit for working with OHLCV/tick market data.
 - `sma` / `ema` — simple/exponential moving averages over a price series
 - `returns` — simple percentage returns between consecutive prices
 - `drawdown` — max peak-to-trough drawdown over a price series
-- `stats` — min/max/mean/median for a price series (`--format json` supported)
+- `stats` — min/max/mean/median for a price series
 - `correlation` — Pearson correlation between two equal-length price series
 - `aggregate` — turn tick/trade data into OHLCV candles at a given interval
 - `resample` — re-bucket already-aggregated OHLCV candles into a larger interval
 - `completions` — generate a shell completion script
+
+Every subcommand above (except `completions`) supports `--format json` for
+scripting; see [JSON output](#json-output).
 
 ## Usage
 
@@ -64,6 +67,26 @@ All numeric output is rounded via `--precision` (default 6 decimal places).
 
 Every subcommand accepts `-` in place of a file path to read CSV from
 stdin, e.g. `cat trades.csv | ohlcv-tools vwap -`.
+
+## JSON output
+
+Every computation subcommand accepts `--format json` for scripting instead
+of the default plain-text output:
+
+- Single-value results (`vwap`, `drawdown`, `correlation`) print a named
+  JSON object, e.g. `{"vwap":17.5}`, `{"max_drawdown":0.25}`,
+  `{"correlation":1.0}`.
+- Series results (`sma`, `ema`, `returns`) print a JSON array of numbers,
+  e.g. `[1.5,2.5,3.5]`.
+- `aggregate` prints a JSON array of candle objects, e.g.
+  `[{"timestamp":0,"open":100.0,"high":101.0,"low":100.0,"close":101.0,"volume":3.0}]`.
+- `stats` prints a JSON object with `min`/`max`/`mean`/`median` keys.
+
+```
+cargo run -- vwap trades.csv --format json
+cargo run -- sma prices.csv --window 14 --format json
+cargo run -- aggregate ticks.csv --interval 60 --format json
+```
 
 ## Development
 

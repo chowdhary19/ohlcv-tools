@@ -150,3 +150,93 @@ fn resample_non_positive_interval_fails_cleanly() {
         .assert()
         .failure();
 }
+
+#[test]
+fn vwap_format_json_prints_named_object() {
+    let file = csv_fixture("price,volume\n10,1\n20,3\n");
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("vwap")
+        .arg(file.path())
+        .arg("--format")
+        .arg("json")
+        .assert()
+        .success()
+        .stdout("{\"vwap\":17.5}\n");
+}
+
+#[test]
+fn sma_format_json_prints_array() {
+    let file = csv_fixture("price\n1\n2\n3\n4\n");
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("sma")
+        .arg(file.path())
+        .arg("--window")
+        .arg("2")
+        .arg("--format")
+        .arg("json")
+        .assert()
+        .success()
+        .stdout("[1.5,2.5,3.5]\n");
+}
+
+#[test]
+fn drawdown_format_json_prints_named_object() {
+    let file = csv_fixture("price\n100\n80\n120\n90\n");
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("drawdown")
+        .arg(file.path())
+        .arg("--format")
+        .arg("json")
+        .assert()
+        .success()
+        .stdout("{\"max_drawdown\":0.25}\n");
+}
+
+#[test]
+fn correlation_format_json_prints_named_object() {
+    let file_a = csv_fixture("price\n1\n2\n3\n4\n");
+    let file_b = csv_fixture("price\n2\n4\n6\n8\n");
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("correlation")
+        .arg(file_a.path())
+        .arg(file_b.path())
+        .arg("--format")
+        .arg("json")
+        .assert()
+        .success()
+        .stdout("{\"correlation\":1.0}\n");
+}
+
+#[test]
+fn aggregate_format_json_prints_candle_array() {
+    let file = csv_fixture("timestamp,price,volume\n0,100,1\n30,110,2\n");
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("aggregate")
+        .arg(file.path())
+        .arg("--interval")
+        .arg("60")
+        .arg("--format")
+        .arg("json")
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("[{\"timestamp\":0,"));
+}
+
+#[test]
+fn returns_format_json_prints_array() {
+    let file = csv_fixture("price\n100\n110\n99\n");
+    Command::cargo_bin("ohlcv-tools")
+        .unwrap()
+        .arg("returns")
+        .arg(file.path())
+        .arg("--format")
+        .arg("json")
+        .assert()
+        .success()
+        .stdout("[0.1,-0.1]\n");
+}
