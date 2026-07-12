@@ -37,3 +37,21 @@ mod tests {
         assert!((dd - 0.25).abs() < 1e-9);
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Max drawdown is a peak-to-trough drop, so it can never be
+        /// negative for any series of strictly positive prices.
+        #[test]
+        fn max_drawdown_is_never_negative(
+            prices in proptest::collection::vec(1.0f64..10_000.0, 2..50)
+        ) {
+            let result = max_drawdown(&prices).expect("2+ prices always yield a drawdown");
+            prop_assert!(result >= 0.0 - 1e-9);
+        }
+    }
+}

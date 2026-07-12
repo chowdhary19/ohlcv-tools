@@ -55,3 +55,33 @@ mod tests {
         assert_eq!(vwap(&trades), Some(42.0));
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// VWAP must fall within [min price, max price] for any set of
+        /// trades with strictly positive volumes.
+        #[test]
+        fn vwap_is_bounded_by_min_and_max_price(
+            trades in proptest::collection::vec(
+                (1.0f64..10_000.0, 0.0001f64..1_000.0),
+                1..50,
+            )
+        ) {
+            let trades: Vec<Trade> = trades
+                .into_iter()
+                .map(|(price, volume)| Trade { price, volume })
+                .collect();
+            let min = trades.iter().map(|t| t.price).fold(f64::INFINITY, f64::min);
+            let max = trades.iter().map(|t| t.price).fold(f64::NEG_INFINITY, f64::max);
+
+            let result = vwap(&trades).expect("positive volumes always yield a VWAP");
+
+            prop_assert!(result >= min - 1e-9);
+            prop_assert!(result <= max + 1e-9);
+        }
+    }
+}

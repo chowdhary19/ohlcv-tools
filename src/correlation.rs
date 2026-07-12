@@ -61,3 +61,29 @@ mod tests {
         assert!((r + 1.0).abs() < 1e-9);
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Pearson correlation is only ever defined in [-1, 1] by
+        /// construction (Cauchy-Schwarz), for any two equal-length series
+        /// with non-zero variance.
+        #[test]
+        fn pearson_is_bounded_between_negative_one_and_one(
+            a in proptest::collection::vec(-10_000.0f64..10_000.0, 2..50)
+        ) {
+            // Derive `b` from `a` with a bit of noise so both series
+            // reliably have non-zero variance without biasing toward
+            // any particular correlation value.
+            let b: Vec<f64> = a.iter().enumerate().map(|(i, &x)| x * 0.5 + i as f64).collect();
+
+            if let Some(r) = pearson(&a, &b) {
+                prop_assert!(r >= -1.0 - 1e-9);
+                prop_assert!(r <= 1.0 + 1e-9);
+            }
+        }
+    }
+}
