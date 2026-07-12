@@ -86,3 +86,29 @@ mod tests {
         assert!((result[2] - 3.5).abs() < 1e-9);
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Every SMA value is the average of a window of the input prices,
+        /// so it must fall within that window's min and max — and
+        /// therefore within the min/max of the whole input series.
+        #[test]
+        fn sma_is_bounded_by_min_and_max_price(
+            prices in proptest::collection::vec(1.0f64..10_000.0, 1..50),
+            window in 1usize..20,
+        ) {
+            let result = sma(&prices, window);
+            let min = prices.iter().cloned().fold(f64::INFINITY, f64::min);
+            let max = prices.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+
+            for value in result {
+                prop_assert!(value >= min - 1e-9);
+                prop_assert!(value <= max + 1e-9);
+            }
+        }
+    }
+}
