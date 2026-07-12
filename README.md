@@ -8,7 +8,10 @@ Small CLI toolkit for working with OHLCV/tick market data.
 - `sma` / `ema` — simple/exponential moving averages over a price series
 - `returns` — simple percentage returns between consecutive prices
 - `drawdown` — max peak-to-trough drawdown over a price series
+- `stats` — min/max/mean/median for a price series (`--format json` supported)
+- `correlation` — Pearson correlation between two equal-length price series
 - `aggregate` — turn tick/trade data into OHLCV candles at a given interval
+- `completions` — generate a shell completion script
 
 ## Usage
 
@@ -19,7 +22,10 @@ cargo run -- sma prices.csv --window 14
 cargo run -- ema prices.csv --period 14
 cargo run -- returns prices.csv
 cargo run -- drawdown prices.csv
+cargo run -- stats prices.csv --format json
+cargo run -- correlation a.csv b.csv
 cargo run -- aggregate ticks.csv --interval 60
+cargo run -- completions bash > ohlcv-tools.bash
 ```
 
 `trades.csv` must have `price` and `volume` columns:
